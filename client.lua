@@ -2,37 +2,43 @@ function stringsplit(inputstr, sep)
 	if sep == nil then
 		sep = "%s"
 	end
-
-	local t={} ; i=1
-
-	for str in string.gmatch(inputstr, "([^"..sep.."]+)") do
+	local t = {}; i = 1
+	for str in string.gmatch(inputstr, "([^" .. sep .. "]+)") do
 		t[i] = str
 		i = i + 1
 	end
-
 	return t
 end
 
 local function starts_with(str, start)
-   return str:sub(1, #start) == start
+	return str:sub(1, #start) == start
 end
 
-Citizen.CreateThread(function()
-	local settingsFile = LoadResourceFile(GetCurrentResourceName(), "visualsettings.dat")
+local settings = {}
+local settingsFile = LoadResourceFile(GetCurrentResourceName(), "visualsettings.dat")
+local lines = stringsplit(settingsFile, "\n")
 
-	local lines = stringsplit(settingsFile, "\n")
-
-	for k,v in ipairs(lines) do
-		if not starts_with(v, '#') and not starts_with(v, '//') and (v ~= "" or v ~= " ") and #v > 1 then
-			v = v:gsub("%s+", " ")
-
-			local setting = stringsplit(v, " ")
-
-			if setting[1] ~= nil and setting[2] ~= nil and tonumber(setting[2]) ~= nil then
-				if setting[1] ~= 'weather.CycleDuration' then	
-					Citizen.InvokeNative(GetHashKey('SET_VISUAL_SETTING_FLOAT') & 0xFFFFFFFF, setting[1], tonumber(setting[2])+.0)
-				end
+for k, v in ipairs(lines) do
+	if not starts_with(v, '#') and not starts_with(v, '//') and (v ~= "" or v ~= " ") and #v > 1 then
+		v = v:gsub("%s+", " ")
+		local setting = stringsplit(v, " ")
+		if setting[1] ~= nil and setting[2] ~= nil and tonumber(setting[2]) ~= nil then
+			if setting[1] ~= 'weather.CycleDuration' then
+				settings[#settings + 1] = { key = setting[1], value = tonumber(setting[2]) }
 			end
 		end
 	end
+end
+
+-- Apply settings one by one
+
+local nextSettingToUpdate = 1
+
+Citizen.CreateThread(function()
+	print("Start updating settings")
+	for _, setting in ipairs(settings) do
+		Citizen.InvokeNative(GetHashKey('SET_VISUAL_SETTING_FLOAT') & 0xFFFFFFFF, setting.key, setting.value + .0)
+		Citizen.Wait(10) -- adjust time as needed
+	end
+	print("Finished updating settings")
 end)
